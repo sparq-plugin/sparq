@@ -23,7 +23,7 @@ apply plugin: 'kotlin-kapt'
 group = 'uk.co.jpereira'
 version = '0.1.0-SNAPSHOT'
 
-description = """[MY-PROJECT]"""
+description = """Thresholder ImageJ Plugin"""
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
