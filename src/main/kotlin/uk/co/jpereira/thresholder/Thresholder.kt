@@ -17,6 +17,7 @@ package uk.co.jpereira.thresholder
 
 import ij.IJ
 import ij.ImagePlus
+import ij.WindowManager
 import ij.gui.DialogListener
 import ij.gui.GenericDialog
 import ij.gui.WaitForUserDialog
@@ -33,31 +34,48 @@ import java.awt.TextField
 import java.io.File
 import java.lang.Exception
 
-class RedoThresholdException: Exception()
+class RedoThresholdException : Exception()
 
 @Plugin(type = Command::class, menuPath = "Plugins>Analyze Images")
 open class Thresholder : Command {
     override fun run() {
-        val directoryChooser = DirectoryChooser("Select the folder to read images from")
-        val directoryPath = directoryChooser.directory
+        var directoryChooser = DirectoryChooser("Select the folder to read images from")
+        var directoryPath = directoryChooser.directory
         if (directoryPath == null || directoryPath.isEmpty())
             return
-        val directory = File(directoryChooser.directory)
+        var directory = File(directoryChooser.directory)
 
         val channel = ChannelSelectorDialog().open()
         if (channel == Channel.ERROR) {
             print("Canceled while selecting channel")
         }
+        var numberOfProcessedFiles = 0
 
         directory.listFiles().forEach {
             if (it.extension == "zvi") {
-                try {
-                    imageProcess(it, channel)
-                } catch (_: RedoThresholdException) {
-                    println("This should call imageProcess again")
+                while (true) {
+                    try {
+                        imageProcess(it, channel)
+                        numberOfProcessedFiles++
+                        break
+                    } catch (_: RedoThresholdException) {
+                        println("This should call imageProcess again")
+                    }
                 }
             }
         }
+
+        WaitForUserDialog("A total of $numberOfProcessedFiles were processed, going to save results")
+
+        directoryChooser = DirectoryChooser("directory to save CSV")
+        directoryPath = directoryChooser.directory
+        if (directoryPath == null || directoryPath.isEmpty()) {
+            WaitForUserDialog("Will not save the CSV file")
+            return
+        }
+        directory = File(directoryChooser.directory)
+        IJ.selectWindow("Summary")
+        IJ.saveAs("results", directory.absolutePath + File.separator + "Results.csv")
     }
 
     private fun imageProcess(image: File, useChannel: Channel) {
@@ -78,7 +96,7 @@ open class Thresholder : Command {
 
         val d = GenericDialog("Finished, does it look ok?")
         d.showDialog()
-        if(d.wasCanceled()) {
+        if (d.wasCanceled()) {
             cellImage.changes = false
             cellImage.close()
             cellImageOutput.changes = false
@@ -89,8 +107,9 @@ open class Thresholder : Command {
             nucleiImageOutput.close()
             throw RedoThresholdException()
         }
-        IJ.run(cellImage, "Set Measurements...", "area limit add redirect=None decimal=3")
-        IJ.run(cellImage, "Analyze Particles...", "size=0.50-Infinity show=[Masks] display exclude clear summarize")
+        IJ.run(cellImageOutput, "Set Measurements...", "area limit add redirect=None decimal=3")
+        IJ.run(cellImageOutput, "Analyze Particles...", "size=0.50-Infinity show=[Masks] display exclude clear summarize")
+        WindowManager.getCurrentImage().close()
 
         cellImage.changes = false
         cellImage.close()
@@ -108,7 +127,7 @@ open class Thresholder : Command {
         options.id = imageFile.absolutePath
         val image = BF.openImagePlus(options)
         val cellImage = image[useChannel.ordinal]
-        if (image.size > 2) {
+        if (image.size == 2) {
             return Pair(cellImage, image[1])
         }
 
@@ -129,6 +148,7 @@ open class Thresholder : Command {
 
         thresholdedImage.window.setLocation(900, 60)
         updateImageThreshold(thresholdedImage, minThreshold, maxThreshold)
+        thresholdedImage.repaintWindow()
         val dialog = ThresholdDialog(thresholdedImage)
         dialog.show(minThreshold = minThreshold.toDouble())
 
