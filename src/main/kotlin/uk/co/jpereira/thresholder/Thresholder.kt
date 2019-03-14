@@ -22,7 +22,6 @@ import ij.gui.DialogListener
 import ij.gui.GenericDialog
 import ij.gui.WaitForUserDialog
 import ij.io.DirectoryChooser
-import ij.plugin.ImageCalculator
 import ij.plugin.Thresholder
 import ij.util.Tools
 import loci.plugins.BF
@@ -30,9 +29,9 @@ import loci.plugins.`in`.ImporterOptions
 import org.scijava.command.Command
 import org.scijava.plugin.Plugin
 import java.awt.AWTEvent
+import java.awt.Checkbox
 import java.awt.TextField
 import java.io.File
-import java.lang.Exception
 
 class RedoThresholdException : Exception()
 
@@ -45,14 +44,21 @@ open class Thresholder : Command {
             return
         var directory = File(directoryChooser.directory)
 
+        val extensions = ExtensionChooserDialog().open()
+        if (extensions.isEmpty()) {
+            print("Canceled because no extensions where selected")
+            return
+        }
+
         val channel = ChannelSelectorDialog().open()
         if (channel == Channel.ERROR) {
             print("Canceled while selecting channel")
+            return
         }
         var numberOfProcessedFiles = 0
 
         directory.listFiles().forEach {
-            if (it.extension == "zvi") {
+            if (extensions.contains(it.extension)) {
                 while (true) {
                     try {
                         imageProcess(it, channel)
@@ -67,15 +73,17 @@ open class Thresholder : Command {
 
         WaitForUserDialog("A total of $numberOfProcessedFiles were processed, going to save results")
 
-        directoryChooser = DirectoryChooser("directory to save CSV")
-        directoryPath = directoryChooser.directory
-        if (directoryPath == null || directoryPath.isEmpty()) {
-            WaitForUserDialog("Will not save the CSV file")
-            return
+        if (numberOfProcessedFiles > 0) {
+            directoryChooser = DirectoryChooser("directory to save CSV")
+            directoryPath = directoryChooser.directory
+            if (directoryPath == null || directoryPath.isEmpty()) {
+                WaitForUserDialog("Will not save the CSV file")
+                return
+            }
+            directory = File(directoryChooser.directory)
+            IJ.selectWindow("Summary")
+            IJ.saveAs("results", directory.absolutePath + File.separator + "Results.csv")
         }
-        directory = File(directoryChooser.directory)
-        IJ.selectWindow("Summary")
-        IJ.saveAs("results", directory.absolutePath + File.separator + "Results.csv")
     }
 
     private fun imageProcess(image: File, useChannel: Channel) {
@@ -94,9 +102,14 @@ open class Thresholder : Command {
 //            return
 //        }
 
-        val d = GenericDialog("Finished, does it look ok?")
-        d.showDialog()
-        if (d.wasCanceled()) {
+        IJ.run(cellImageOutput, "Set Measurements...", "area limit add redirect=None decimal=3")
+        IJ.run(cellImageOutput, "Analyze Particles...", "size=0.50-Infinity show=[Masks] display exclude clear summarize")
+
+        val isFinishedDialog = GenericDialog("Finished, does it look ok?")
+        isFinishedDialog.setCancelLabel("No, repeat threshold")
+        isFinishedDialog.setOKLabel("Yes, move to next image")
+        isFinishedDialog.showDialog()
+        if (isFinishedDialog.wasCanceled()) {
             cellImage.changes = false
             cellImage.close()
             cellImageOutput.changes = false
@@ -107,10 +120,8 @@ open class Thresholder : Command {
 //            nucleiImageOutput.close()
             throw RedoThresholdException()
         }
-        IJ.run(cellImageOutput, "Set Measurements...", "area limit add redirect=None decimal=3")
-        IJ.run(cellImageOutput, "Analyze Particles...", "size=0.50-Infinity show=[Masks] display exclude clear summarize")
-        WindowManager.getCurrentImage().close()
 
+        WindowManager.getCurrentImage().close()
         cellImage.changes = false
         cellImage.close()
         cellImageOutput.changes = false
@@ -170,6 +181,27 @@ enum class Channel {
     BLUE,
 
     ERROR
+}
+
+class ExtensionChooserDialog {
+    fun open(): List<String> {
+        val dialog = GenericDialog("Select files extensions to process")
+
+        dialog.addCheckboxGroup(3, 7, arrayOf(
+                "tif", "tiff", "zvi"
+        ), BooleanArray(3))
+        dialog.setOKLabel("Ok")
+        dialog.setCancelLabel("Exit Plugin")
+        dialog.showDialog()
+
+        if (dialog.wasCanceled()) {
+            return emptyList()
+        }
+
+        return dialog.checkboxes
+                .filter { (it as Checkbox).state }
+                .map { (it as Checkbox).label }
+    }
 }
 
 class ChannelSelectorDialog {
