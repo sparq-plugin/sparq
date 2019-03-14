@@ -84,15 +84,15 @@ open class Thresholder : Command {
         cellImage.show("original image")
         val cellImageOutput = thresholdImage(cellImage) ?: return
 
-        nucleiImage.show("original image")
-        val nucleiImageOutput = thresholdImage(nucleiImage)
-        if(nucleiImageOutput == null) {
-            cellImage.changes = false
-            cellImage.close()
-            cellImageOutput.changes = false
-            cellImageOutput.close()
-            return
-        }
+//        nucleiImage.show("original image")
+//        val nucleiImageOutput = thresholdImage(nucleiImage)
+//        if (nucleiImageOutput == null) {
+//            cellImage.changes = false
+//            cellImage.close()
+//            cellImageOutput.changes = false
+//            cellImageOutput.close()
+//            return
+//        }
 
         val d = GenericDialog("Finished, does it look ok?")
         d.showDialog()
@@ -103,8 +103,8 @@ open class Thresholder : Command {
             cellImageOutput.close()
             nucleiImage.changes = false
             nucleiImage.close()
-            nucleiImageOutput.changes = false
-            nucleiImageOutput.close()
+//            nucleiImageOutput.changes = false
+//            nucleiImageOutput.close()
             throw RedoThresholdException()
         }
         IJ.run(cellImageOutput, "Set Measurements...", "area limit add redirect=None decimal=3")
@@ -117,8 +117,8 @@ open class Thresholder : Command {
         cellImageOutput.close()
         nucleiImage.changes = false
         nucleiImage.close()
-        nucleiImageOutput.changes = false
-        nucleiImageOutput.close()
+//        nucleiImageOutput.changes = false
+//        nucleiImageOutput.close()
     }
 
     private fun openImage(imageFile: File, useChannel: Channel): Pair<ImagePlus, ImagePlus> {
