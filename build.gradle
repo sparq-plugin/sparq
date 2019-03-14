@@ -11,6 +11,7 @@ buildscript {
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath "org.junit.platform:junit-platform-gradle-plugin:1.0.0"
+        classpath 'com.github.jengelman.gradle.plugins:shadow:5.0.0'
     }
 }
 
@@ -19,6 +20,8 @@ apply plugin: 'idea'
 apply plugin: 'eclipse'
 apply plugin: 'maven'
 apply plugin: 'kotlin-kapt'
+apply plugin: 'com.github.johnrengelman.shadow'
+
 
 group = 'uk.co.jpereira'
 version = '0.1.0-SNAPSHOT'
@@ -72,4 +75,11 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+shadowJar {
+    configurations = [project.configurations.compile]
+    dependencies {
+        include(dependency("org.jetbrains.kotlin:kotlin-stdlib"))
+    }
 }
