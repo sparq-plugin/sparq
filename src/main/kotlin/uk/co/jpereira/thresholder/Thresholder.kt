@@ -22,7 +22,9 @@ import ij.gui.DialogListener
 import ij.gui.GenericDialog
 import ij.gui.WaitForUserDialog
 import ij.io.DirectoryChooser
+import ij.measure.ResultsTable
 import ij.plugin.Thresholder
+import ij.text.TextWindow
 import ij.util.Tools
 import loci.plugins.BF
 import loci.plugins.`in`.ImporterOptions
@@ -31,7 +33,10 @@ import org.scijava.plugin.Plugin
 import java.awt.AWTEvent
 import java.awt.Checkbox
 import java.awt.TextField
+import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileOutputStream
+import java.io.PrintWriter
 
 class RedoThresholdException : Exception()
 
@@ -65,24 +70,24 @@ open class Thresholder : Command {
                         numberOfProcessedFiles++
                         break
                     } catch (_: RedoThresholdException) {
+                        removeLastEntryFromSummary()
                         println("This should call imageProcess again")
                     }
                 }
             }
         }
 
-        WaitForUserDialog("A total of $numberOfProcessedFiles were processed, going to save results")
+        WaitForUserDialog("A total of $numberOfProcessedFiles were processed, going to save results").show()
 
         if (numberOfProcessedFiles > 0) {
             directoryChooser = DirectoryChooser("directory to save CSV")
             directoryPath = directoryChooser.directory
             if (directoryPath == null || directoryPath.isEmpty()) {
-                WaitForUserDialog("Will not save the CSV file")
+                WaitForUserDialog("Will not save the CSV file").isVisible = true
                 return
             }
             directory = File(directoryChooser.directory)
-            IJ.selectWindow("Summary")
-            IJ.saveAs("results", directory.absolutePath + File.separator + "Results.csv")
+            saveSummary(directory.absolutePath + File.separator + "Results.csv")
         }
     }
 
@@ -92,18 +97,14 @@ open class Thresholder : Command {
         cellImage.show("original image")
         val cellImageOutput = thresholdImage(cellImage) ?: return
 
-//        nucleiImage.show("original image")
-//        val nucleiImageOutput = thresholdImage(nucleiImage)
-//        if (nucleiImageOutput == null) {
-//            cellImage.changes = false
-//            cellImage.close()
-//            cellImageOutput.changes = false
-//            cellImageOutput.close()
-//            return
-//        }
+        nucleiImage.show("original image")
+        zoomOutImage(nucleiImage)
 
         IJ.run(cellImageOutput, "Set Measurements...", "area limit add redirect=None decimal=3")
         IJ.run(cellImageOutput, "Analyze Particles...", "size=0.50-Infinity show=[Masks] display exclude clear summarize")
+        val particleImage = WindowManager.getCurrentImage()
+        zoomOutImage(particleImage)
+        particleImage.window.setLocation(450, 300)
 
         val isFinishedDialog = GenericDialog("Finished, does it look ok?")
         isFinishedDialog.setCancelLabel("No, repeat threshold")
@@ -116,8 +117,6 @@ open class Thresholder : Command {
             cellImageOutput.close()
             nucleiImage.changes = false
             nucleiImage.close()
-//            nucleiImageOutput.changes = false
-//            nucleiImageOutput.close()
             throw RedoThresholdException()
         }
 
@@ -128,8 +127,6 @@ open class Thresholder : Command {
         cellImageOutput.close()
         nucleiImage.changes = false
         nucleiImage.close()
-//        nucleiImageOutput.changes = false
-//        nucleiImageOutput.close()
     }
 
     private fun openImage(imageFile: File, useChannel: Channel): Pair<ImagePlus, ImagePlus> {
@@ -148,14 +145,12 @@ open class Thresholder : Command {
     private fun thresholdImage(image: ImagePlus): ImagePlus? {
         val minThreshold = 50
         val maxThreshold = 255
-        IJ.run(image, "Out [-]", "")
-        IJ.run(image, "Out [-]", "")
+        zoomOutImage(image)
         val thresholdedImage = image.duplicate()
         IJ.run(thresholdedImage, "8-bit", "")
         thresholdedImage.show("With Threshold applied")
         thresholdedImage.displayMode = IJ.GRAYSCALE
-        IJ.run(thresholdedImage, "Out [-]", "")
-        IJ.run(thresholdedImage, "Out [-]", "")
+        zoomOutImage(thresholdedImage)
 
         thresholdedImage.window.setLocation(900, 60)
         updateImageThreshold(thresholdedImage, minThreshold, maxThreshold)
@@ -190,7 +185,7 @@ class ExtensionChooserDialog {
         dialog.addCheckboxGroup(3, 7, arrayOf(
                 "tif", "tiff", "zvi"
         ), BooleanArray(3))
-        dialog.setOKLabel("Ok")
+        dialog.setOKLabel("Select Extensions")
         dialog.setCancelLabel("Exit Plugin")
         dialog.showDialog()
 
@@ -208,6 +203,7 @@ class ChannelSelectorDialog {
     fun open(): Channel {
         val dialog = GenericDialog("Select channels to use")
         dialog.addChoice("Channels:", arrayOf("Red", "Green"), "Red")
+        dialog.setCancelLabel("Exit Plugin")
         dialog.showDialog()
         if (dialog.wasCanceled()) {
             return Channel.ERROR
@@ -222,6 +218,7 @@ class ThresholdDialog(private val image: ImagePlus) : GenericDialog("Threshold")
     fun show(minThreshold: Double) {
         addSlider("Minimum histogram value", 0.0, 255.0, minThreshold)
         addSlider("Maximum histogram value", 0.0, 255.0, 255.0)
+        setCancelLabel("Skip image")
         addDialogListener(
                 ThresholdDialogListener(
                         dialog = this,
@@ -273,9 +270,64 @@ class ThresholdDialogListener(
 
 }
 
+fun ResultsTable.printHeadings(printWriter: PrintWriter) {
+    var line = String()
+    headings.forEachIndexed { index: Int, heading: String ->
+        line += heading
+        printWriter.print(heading)
+        if (index != lastColumn)
+            line += ","
+    }
+    printWriter.println(line)
+}
+
+fun ResultsTable.printCSVRow(rowId: Int, printWriter: PrintWriter) {
+    var line = ""
+    for (i in 0..lastColumn) {
+        if (getColumn(i) != null) {
+            var value = getStringValue(i, rowId)
+            if (value!!.contains(","))
+                value = "\"" + value + "\""
+            line += value
+            if (i != lastColumn)
+                line += ","
+        }
+    }
+    printWriter.println(line)
+}
+
+fun zoomOutImage(image: ImagePlus) {
+    IJ.run(image, "Out [-]", "")
+    IJ.run(image, "Out [-]", "")
+}
+
 fun updateImageThreshold(image: ImagePlus, minThreshold: Int, maxThreshold: Int) {
     IJ.run("Options...", "iterations=10000 count=1 black")
     Thresholder.setMethod("Default")
     Thresholder.setBackground("Dark")
     IJ.setThreshold(image, minThreshold.toDouble(), maxThreshold.toDouble(), "Black & White")
+}
+
+fun saveSummary(filePath: String) {
+    val frame = WindowManager.getFrame("Summary")
+    IJ.log("saveSummary")
+    if (frame == null || frame !is TextWindow)
+        return
+    val table = frame.textPanel.resultsTable
+    val fileOutputStream = FileOutputStream(filePath)
+    val buffer = BufferedOutputStream(fileOutputStream)
+    val printWriter = PrintWriter(buffer)
+    table.printHeadings(printWriter)
+    for (i in 0 until table.size())
+        table.printCSVRow(i, printWriter)
+    printWriter.close()
+}
+
+fun removeLastEntryFromSummary() {
+    val frame = WindowManager.getFrame("Summary")
+    IJ.log("saveSummary")
+    if (frame == null || frame !is TextWindow)
+        return
+    val table = frame.textPanel.resultsTable
+    table.deleteRow(table.size() - 1)
 }
