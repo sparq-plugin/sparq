@@ -18,36 +18,29 @@ package uk.co.jpereira.sparq
 import ij.IJ
 import ij.ImagePlus
 import ij.WindowManager
-import ij.gui.DialogListener
 import ij.gui.GenericDialog
 import ij.gui.WaitForUserDialog
 import ij.io.DirectoryChooser
-import ij.measure.ResultsTable
-import ij.plugin.Thresholder
-import ij.text.TextWindow
-import ij.util.Tools
 import loci.plugins.BF
 import loci.plugins.`in`.ImporterOptions
 import org.scijava.command.Command
 import org.scijava.plugin.Plugin
-import java.awt.AWTEvent
-import java.awt.Checkbox
-import java.awt.TextField
-import java.io.BufferedOutputStream
+import uk.co.jpereira.sparq.dialogs.Channel
+import uk.co.jpereira.sparq.dialogs.ChannelSelectorDialog
+import uk.co.jpereira.sparq.dialogs.ExtensionChooserDialog
+import uk.co.jpereira.sparq.dialogs.ThresholdDialog
+import uk.co.jpereira.sparq.utils.removeLastEntryFromSummary
+import uk.co.jpereira.sparq.utils.saveSummary
+import uk.co.jpereira.sparq.utils.updateImageThreshold
+import uk.co.jpereira.sparq.utils.zoomOutImage
 import java.io.File
-import java.io.FileOutputStream
-import java.io.PrintWriter
 
 class RedoThresholdException : Exception()
 
 @Plugin(type = Command::class, menuPath = "Plugins>SParQ")
 open class SParQPlugin : Command {
     override fun run() {
-        var directoryChooser = DirectoryChooser("Select the folder to read images from")
-        var directoryPath = directoryChooser.directory
-        if (directoryPath == null || directoryPath.isEmpty())
-            return
-        var directory = File(directoryChooser.directory)
+        val directory = directoryToProcessImagesFrom()?:return
 
         val extensions = ExtensionChooserDialog().open()
         if (extensions.isEmpty()) {
@@ -62,6 +55,12 @@ open class SParQPlugin : Command {
         }
         var numberOfProcessedFiles = 0
 
+        /*
+         * For each file in the directory the next piece of code will
+         * try to process the image.
+         * During the process the user can ask to reprocess the same image
+         * or to skip the current image all together
+         */
         directory.listFiles().forEach {
             if (extensions.contains(it.extension)) {
                 while (true) {
@@ -79,33 +78,62 @@ open class SParQPlugin : Command {
 
         WaitForUserDialog("A total of $numberOfProcessedFiles were processed, going to save results").show()
 
+        saveResults(numberOfProcessedFiles)
+    }
+
+    private fun saveResults(numberOfProcessedFiles: Int) {
         if (numberOfProcessedFiles > 0) {
-            directoryChooser = DirectoryChooser("directory to save CSV")
-            directoryPath = directoryChooser.directory
+            val directoryChooser = DirectoryChooser("directory to save CSV")
+            val directoryPath = directoryChooser.directory
             if (directoryPath == null || directoryPath.isEmpty()) {
                 WaitForUserDialog("Will not save the CSV file").isVisible = true
                 return
             }
-            directory = File(directoryChooser.directory)
-            saveSummary(directory.absolutePath + File.separator + "Results.csv")
+            val resultsFilePath = File(directoryChooser.directory).absolutePath + File.separator + "Results.csv"
+            saveSummary(resultsFilePath)
+            WaitForUserDialog("Results file saved in: $resultsFilePath")
         }
     }
 
+    private fun directoryToProcessImagesFrom(): File? {
+        val directoryChooser = DirectoryChooser("Select the folder to read images from")
+        val directoryPath = directoryChooser.directory
+        if (directoryPath == null || directoryPath.isEmpty())
+            return null
+        return File(directoryChooser.directory)
+    }
+
+    /*
+     * The image processing steps are:
+     * 1. Open the image and split into channels
+     * 2. Show the image channel the user asked for
+     * 3. Display the threshold dialog to the user to select the threshold
+     * 4. Display the nuclei channel to help the user to validate the current threshold
+     * 5. Analyze the particles using the built in plugin ParticleAnalyzer
+     * 6. Display a dialog to the user to decide if the result is the expected or not
+     *    If the result is not the expected one than it will restart the image process
+     *    for the current image if not it will move to the next image
+     * 7. Closes all the images open
+     *
+     * The code bellow has the pointers for each step described above
+     */
     private fun imageProcess(image: File, useChannel: Channel) {
-        val (cellImage, nucleiImage) = openImage(image, useChannel)
+        val (cellImage, nucleiImage) = openImage(image, useChannel) // step 1
 
-        cellImage.show("original image")
-        val cellImageOutput = thresholdImage(cellImage) ?: return
+        cellImage.show("original image") // step 2
+        val cellImageOutput = thresholdImage(cellImage) ?: return //step 3
 
-        nucleiImage.show("original image")
+        nucleiImage.show("original image") // step 4
         zoomOutImage(nucleiImage)
 
+        // next section is step 5
         IJ.run(cellImageOutput, "Set Measurements...", "area limit add redirect=None decimal=3")
         IJ.run(cellImageOutput, "Analyze Particles...", "size=0.50-Infinity show=[Masks] display exclude clear summarize")
         val particleImage = WindowManager.getCurrentImage()
         zoomOutImage(particleImage)
         particleImage.window.setLocation(450, 300)
 
+        // next section is step 6
         val isFinishedDialog = GenericDialog("Finished, does it look ok?")
         isFinishedDialog.setCancelLabel("No, repeat threshold")
         isFinishedDialog.setOKLabel("Yes, move to next image")
@@ -120,6 +148,7 @@ open class SParQPlugin : Command {
             throw RedoThresholdException()
         }
 
+        // next setion is step 7
         WindowManager.getCurrentImage().close()
         cellImage.changes = false
         cellImage.close()
@@ -170,164 +199,3 @@ open class SParQPlugin : Command {
     }
 }
 
-enum class Channel {
-    RED,
-    GREEN,
-    BLUE,
-
-    ERROR
-}
-
-class ExtensionChooserDialog {
-    fun open(): List<String> {
-        val dialog = GenericDialog("Select files extensions to process")
-
-        dialog.addCheckboxGroup(3, 7, arrayOf(
-                "tif", "tiff", "zvi"
-        ), BooleanArray(3))
-        dialog.setOKLabel("Select Extensions")
-        dialog.setCancelLabel("Exit Plugin")
-        dialog.showDialog()
-
-        if (dialog.wasCanceled()) {
-            return emptyList()
-        }
-
-        return dialog.checkboxes
-                .filter { (it as Checkbox).state }
-                .map { (it as Checkbox).label }
-    }
-}
-
-class ChannelSelectorDialog {
-    fun open(): Channel {
-        val dialog = GenericDialog("Select channels to use")
-        dialog.addChoice("Channels:", arrayOf("Red", "Green"), "Red")
-        dialog.setCancelLabel("Exit Plugin")
-        dialog.showDialog()
-        if (dialog.wasCanceled()) {
-            return Channel.ERROR
-        }
-        if (dialog.nextChoiceIndex == 0)
-            return Channel.RED
-        return Channel.GREEN
-    }
-}
-
-class ThresholdDialog(private val image: ImagePlus) : GenericDialog("Threshold") {
-    fun show(minThreshold: Double) {
-        addSlider("Minimum histogram value", 0.0, 255.0, minThreshold)
-        addSlider("Maximum histogram value", 0.0, 255.0, 255.0)
-        setCancelLabel("Skip image")
-        addDialogListener(
-                ThresholdDialogListener(
-                        dialog = this,
-                        image = image,
-                        minThreshold = minThreshold,
-                        maxThreshold = 255.0
-                ))
-        showDialog()
-    }
-}
-
-class ThresholdDialogListener(
-        private val dialog: ThresholdDialog,
-        private val image: ImagePlus,
-        private var minThreshold: Double,
-        private var maxThreshold: Double) : DialogListener {
-    override fun dialogItemChanged(dialog: GenericDialog?, awtEvent: AWTEvent?): Boolean {
-        if (awtEvent == null || dialog == null)
-            return false
-
-        val okButton = this.dialog.buttons[0]
-        okButton.isEnabled = false
-        val source = awtEvent.source as TextField
-        val sliders = dialog.sliders
-        val numericFields = dialog.numericFields
-
-        sliders.forEachIndexed { index: Int, _: Any? ->
-            if (source == numericFields.elementAt(index)) {
-                if (index == 0) {
-                    val newMin = Tools.parseDouble(source.text)
-                    if (newMin > maxThreshold) {
-                        minThreshold = maxThreshold
-                        return false
-                    }
-                    minThreshold = newMin
-                } else {
-                    val newMax = Tools.parseDouble(source.text)
-                    if (minThreshold > newMax) {
-                        maxThreshold = minThreshold
-                        return false
-                    }
-                    maxThreshold = newMax
-                }
-                updateImageThreshold(image, minThreshold = minThreshold.toInt(), maxThreshold = maxThreshold.toInt())
-            }
-        }
-        return true
-    }
-
-}
-
-fun ResultsTable.printHeadings(printWriter: PrintWriter) {
-    var line = String()
-    headings.forEachIndexed { index: Int, heading: String ->
-        line += heading
-        printWriter.print(heading)
-        if (index != lastColumn)
-            line += ","
-    }
-    printWriter.println(line)
-}
-
-fun ResultsTable.printCSVRow(rowId: Int, printWriter: PrintWriter) {
-    var line = ""
-    for (i in 0..lastColumn) {
-        if (getColumn(i) != null) {
-            var value = getStringValue(i, rowId)
-            if (value!!.contains(","))
-                value = "\"" + value + "\""
-            line += value
-            if (i != lastColumn)
-                line += ","
-        }
-    }
-    printWriter.println(line)
-}
-
-fun zoomOutImage(image: ImagePlus) {
-    IJ.run(image, "Out [-]", "")
-    IJ.run(image, "Out [-]", "")
-}
-
-fun updateImageThreshold(image: ImagePlus, minThreshold: Int, maxThreshold: Int) {
-    IJ.run("Options...", "iterations=10000 count=1 black")
-    Thresholder.setMethod("Default")
-    Thresholder.setBackground("Dark")
-    IJ.setThreshold(image, minThreshold.toDouble(), maxThreshold.toDouble(), "Black & White")
-}
-
-fun saveSummary(filePath: String) {
-    val frame = WindowManager.getFrame("Summary")
-    IJ.log("saveSummary")
-    if (frame == null || frame !is TextWindow)
-        return
-    val table = frame.textPanel.resultsTable
-    val fileOutputStream = FileOutputStream(filePath)
-    val buffer = BufferedOutputStream(fileOutputStream)
-    val printWriter = PrintWriter(buffer)
-    table.printHeadings(printWriter)
-    for (i in 0 until table.size())
-        table.printCSVRow(i, printWriter)
-    printWriter.close()
-}
-
-fun removeLastEntryFromSummary() {
-    val frame = WindowManager.getFrame("Summary")
-    IJ.log("saveSummary")
-    if (frame == null || frame !is TextWindow)
-        return
-    val table = frame.textPanel.resultsTable
-    table.deleteRow(table.size() - 1)
-}
