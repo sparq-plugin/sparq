@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package uk.co.jpereira.thresholder
+package uk.co.jpereira.sparq
 
 import ij.IJ
 import ij.ImagePlus
@@ -40,8 +40,8 @@ import java.io.PrintWriter
 
 class RedoThresholdException : Exception()
 
-@Plugin(type = Command::class, menuPath = "Plugins>Analyze Images")
-open class Thresholder : Command {
+@Plugin(type = Command::class, menuPath = "Plugins>SParQ")
+open class SParQPlugin : Command {
     override fun run() {
         var directoryChooser = DirectoryChooser("Select the folder to read images from")
         var directoryPath = directoryChooser.directory

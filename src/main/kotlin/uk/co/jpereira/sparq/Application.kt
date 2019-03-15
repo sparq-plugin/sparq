@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package uk.co.jpereira.thresholder
+package uk.co.jpereira.sparq
 
 import net.imagej.ImageJ
 
 fun main(args: Array<String>) {
     val imj = ImageJ()
     imj.launch(*args)
-    imj.command().run(Thresholder::class.java, false)
+    imj.command().run(SParQPlugin::class.java, false)
 }
