@@ -22,24 +22,29 @@ fun ResultsTable.printHeadings(printWriter: PrintWriter) {
     var line = String()
     headings.forEachIndexed { index: Int, heading: String ->
         line += heading
-        printWriter.print(heading)
         if (index != lastColumn)
             line += ","
     }
-    printWriter.println(line)
+    if (line.isNotBlank())
+        printWriter.println(line)
 }
 
 fun ResultsTable.printCSVRow(rowId: Int, printWriter: PrintWriter) {
     var line = ""
     for (i in 0..lastColumn) {
         if (getColumn(i) != null) {
-            var value = getStringValue(i, rowId)
-            if (value!!.contains(","))
-                value = "\"" + value + "\""
-            line += value
-            if (i != lastColumn)
-                line += ","
+            try {
+                var value = getStringValue(i, rowId)
+                if (value!!.contains(","))
+                    value = "\"" + value + "\""
+                line += value
+                if (i != lastColumn)
+                    line += ","
+            } catch (_: IllegalArgumentException) {
+                break
+            }
         }
     }
-    printWriter.println(line)
+    if (line.isNotBlank())
+        printWriter.println(line)
 }

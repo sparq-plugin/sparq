@@ -40,7 +40,7 @@ class RedoThresholdException : Exception()
 @Plugin(type = Command::class, menuPath = "Plugins>SParQ")
 open class SParQPlugin : Command {
     override fun run() {
-        val directory = directoryToProcessImagesFrom()?:return
+        val directory = directoryToProcessImagesFrom() ?: return
 
         val extensions = ExtensionChooserDialog().open()
         if (extensions.isEmpty()) {
@@ -79,28 +79,6 @@ open class SParQPlugin : Command {
         WaitForUserDialog("A total of $numberOfProcessedFiles were processed, going to save results").show()
 
         saveResults(numberOfProcessedFiles)
-    }
-
-    private fun saveResults(numberOfProcessedFiles: Int) {
-        if (numberOfProcessedFiles > 0) {
-            val directoryChooser = DirectoryChooser("directory to save CSV")
-            val directoryPath = directoryChooser.directory
-            if (directoryPath == null || directoryPath.isEmpty()) {
-                WaitForUserDialog("Will not save the CSV file").isVisible = true
-                return
-            }
-            val resultsFilePath = File(directoryChooser.directory).absolutePath + File.separator + "Results.csv"
-            saveSummary(resultsFilePath)
-            WaitForUserDialog("Results file saved in: $resultsFilePath")
-        }
-    }
-
-    private fun directoryToProcessImagesFrom(): File? {
-        val directoryChooser = DirectoryChooser("Select the folder to read images from")
-        val directoryPath = directoryChooser.directory
-        if (directoryPath == null || directoryPath.isEmpty())
-            return null
-        return File(directoryChooser.directory)
     }
 
     /*
@@ -196,6 +174,28 @@ open class SParQPlugin : Command {
 
         image.close()
         return thresholdedImage
+    }
+
+    private fun saveResults(numberOfProcessedFiles: Int) {
+        if (numberOfProcessedFiles > 0) {
+            val directoryChooser = DirectoryChooser("directory to save CSV")
+            val directoryPath = directoryChooser.directory
+            if (directoryPath == null || directoryPath.isEmpty()) {
+                WaitForUserDialog("Will not save the CSV file").isVisible = true
+                return
+            }
+            val resultsFilePath = File(directoryChooser.directory).absolutePath + File.separator + "Results.csv"
+            saveSummary(resultsFilePath)
+            WaitForUserDialog("Results file saved in: $resultsFilePath")
+        }
+    }
+
+    private fun directoryToProcessImagesFrom(): File? {
+        val directoryChooser = DirectoryChooser("Select the folder to read images from")
+        val directoryPath = directoryChooser.directory
+        if (directoryPath == null || directoryPath.isEmpty())
+            return null
+        return File(directoryChooser.directory)
     }
 }
 
