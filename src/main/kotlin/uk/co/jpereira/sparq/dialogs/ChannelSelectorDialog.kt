@@ -25,16 +25,15 @@ enum class Channel {
     ERROR
 }
 
-class ChannelSelectorDialog {
+class ChannelSelectorDialog: GenericDialog("Select channels to use") {
     fun open(): Channel {
-        val dialog = GenericDialog("Select channels to use")
-        dialog.addChoice("Channels:", arrayOf("Red", "Green"), "Red")
-        dialog.setCancelLabel("Exit Plugin")
-        dialog.showDialog()
-        if (dialog.wasCanceled()) {
+        addChoice("Channels:", arrayOf("Red", "Green"), "Red")
+        setCancelLabel("Exit Plugin")
+        showDialog()
+        if (wasCanceled()) {
             return Channel.ERROR
         }
-        if (dialog.nextChoiceIndex == 0)
+        if (nextChoiceIndex == 0)
             return Channel.RED
         return Channel.GREEN
     }
