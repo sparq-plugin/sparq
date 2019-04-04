@@ -21,14 +21,12 @@ import ij.WindowManager
 import ij.gui.GenericDialog
 import ij.gui.WaitForUserDialog
 import ij.io.DirectoryChooser
+import ij.plugin.ChannelSplitter
 import loci.plugins.BF
 import loci.plugins.`in`.ImporterOptions
 import org.scijava.command.Command
 import org.scijava.plugin.Plugin
-import uk.co.jpereira.sparq.dialogs.Channel
-import uk.co.jpereira.sparq.dialogs.ChannelSelectorDialog
-import uk.co.jpereira.sparq.dialogs.ExtensionChooserDialog
-import uk.co.jpereira.sparq.dialogs.ThresholdDialog
+import uk.co.jpereira.sparq.dialogs.*
 import uk.co.jpereira.sparq.utils.removeLastEntryFromSummary
 import uk.co.jpereira.sparq.utils.saveSummary
 import uk.co.jpereira.sparq.utils.updateImageThreshold
@@ -137,16 +135,30 @@ open class SParQPlugin : Command {
     }
 
     private fun openImage(imageFile: File, useChannel: Channel): Pair<ImagePlus, ImagePlus> {
-        val options = ImporterOptions()
-        options.isSplitChannels = true
-        options.id = imageFile.absolutePath
-        val image = BF.openImagePlus(options)
-        val cellImage = image[useChannel.ordinal]
-        if (image.size == 2) {
-            return Pair(cellImage, image[1])
+        val images: Array<ImagePlus>
+        if (imageFile.extension != "tif") {
+            val options = ImporterOptions()
+            options.isSplitChannels = true
+            options.id = imageFile.absolutePath
+            images = BF.openImagePlus(options)
+        } else {
+            val tifImage = IJ.openImage(imageFile.absolutePath)
+            images = ChannelSplitter.split(tifImage)
         }
 
-        return Pair(cellImage, image[Channel.BLUE.ordinal])
+        var useChannelArrayPosition = useChannel.ordinal
+        var blueChannelArrayPosition = Channel.BLUE.ordinal
+        if (!images[0].stack.isRGB) {
+            useChannelArrayPosition = invertToBGR(useChannel)
+            blueChannelArrayPosition = invertToBGR(Channel.BLUE)
+        }
+
+        val cellImage = images[useChannelArrayPosition]
+        if (images.size == 2) {
+            return Pair(cellImage, images[1])
+        }
+
+        return Pair(cellImage, images[blueChannelArrayPosition])
     }
 
     private fun thresholdImage(image: ImagePlus): ImagePlus? {

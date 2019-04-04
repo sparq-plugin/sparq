@@ -25,6 +25,15 @@ enum class Channel {
     ERROR
 }
 
+fun invertToBGR(channel: Channel): Int {
+    return when(channel) {
+        Channel.RED -> return 2
+        Channel.GREEN -> return 1
+        Channel.BLUE -> 0
+        else -> -1
+    }
+}
+
 class ChannelSelectorDialog: GenericDialog("Select channels to use") {
     fun open(): Channel {
         addChoice("Channels:", arrayOf("Red", "Green"), "Red")
