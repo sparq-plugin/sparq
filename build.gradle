@@ -79,6 +79,7 @@ test {
 
 shadowJar {
     configurations = [project.configurations.compile]
+    archiveName = "sparq-plugin-${version}.jar"
     dependencies {
         include(dependency("org.jetbrains.kotlin:kotlin-stdlib"))
     }
