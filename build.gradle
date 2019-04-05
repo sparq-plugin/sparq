@@ -12,6 +12,7 @@ buildscript {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath "org.junit.platform:junit-platform-gradle-plugin:1.0.0"
         classpath 'com.github.jengelman.gradle.plugins:shadow:5.0.0'
+        classpath 'com.bmuschko:gradle-nexus-plugin:2.3.1'
     }
 }
 
@@ -21,6 +22,7 @@ apply plugin: 'eclipse'
 apply plugin: 'maven'
 apply plugin: 'kotlin-kapt'
 apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.bmuschko.nexus'
 
 
 group = 'uk.co.jpereira'
@@ -38,7 +40,6 @@ configurations.all {
 }
 
 repositories {
-
     maven { url "http://maven.imagej.net/content/groups/public" }
     maven { url "http://repo.maven.apache.org/maven2" }
     mavenCentral()
@@ -83,4 +84,44 @@ shadowJar {
     dependencies {
         include(dependency("org.jetbrains.kotlin:kotlin-stdlib"))
     }
+}
+
+modifyPom {
+    project {
+        name 'sparq-plugin'
+        description description
+        url 'https://github.com/sparq-plugin/sparq'
+        inceptionYear '2019'
+        scm {
+            url 'https://github.com/sparq-plugin/sparq'
+            connection 'scm:https://github.com/sparq-plugin/sparq.git'
+            developerConnection 'scm:git://github.com/sparq-plugin/sparq.git'
+        }
+        licenses {
+            license {
+                name 'The Apache Software License, Version 2.0'
+                url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                distribution 'repo'
+            }
+        }
+        developers {
+            developer {
+                id 'joaopapereira'
+                name 'Joao Pereira'
+                email 'joaopapereira@gmail.com'
+            }
+        }
+    }
+}
+
+extraArchive {
+    sources = true
+    tests = true
+    javadoc = true
+}
+
+nexus {
+    sign = true
+    repositoryUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
+    snapshotRepositoryUrl = 'https://oss.sonatype.org/content/repositories/snapshots/'
 }
