@@ -22,9 +22,9 @@ class ExtensionChooserDialog {
     fun open(): List<String> {
         val dialog = GenericDialog("Select files extensions to process")
 
-        dialog.addCheckboxGroup(3, 7, arrayOf(
-                "tif", "tiff", "zvi"
-        ), BooleanArray(3))
+        dialog.addCheckboxGroup(4, 7, arrayOf(
+                "tif", "tiff", "zvi", "lif"
+        ), BooleanArray(4))
         dialog.setOKLabel("Select Extensions")
         dialog.setCancelLabel("Exit Plugin")
         dialog.showDialog()

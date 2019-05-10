@@ -21,22 +21,28 @@ import ij.WindowManager
 import ij.gui.GenericDialog
 import ij.gui.WaitForUserDialog
 import ij.io.DirectoryChooser
-import ij.plugin.ChannelSplitter
-import loci.plugins.BF
-import loci.plugins.`in`.ImporterOptions
 import org.scijava.command.Command
 import org.scijava.plugin.Plugin
-import uk.co.jpereira.sparq.dialogs.*
-import uk.co.jpereira.sparq.utils.removeLastEntryFromSummary
-import uk.co.jpereira.sparq.utils.saveSummary
-import uk.co.jpereira.sparq.utils.updateImageThreshold
-import uk.co.jpereira.sparq.utils.zoomOutImage
+import uk.co.jpereira.sparq.dependencies.BioformatImpl
+import uk.co.jpereira.sparq.dependencies.ChannelSpliterImpl
+import uk.co.jpereira.sparq.dependencies.ImageJOpenImageImpl
+import uk.co.jpereira.sparq.dialogs.Channel
+import uk.co.jpereira.sparq.dialogs.ChannelSelectorDialog
+import uk.co.jpereira.sparq.dialogs.ExtensionChooserDialog
+import uk.co.jpereira.sparq.dialogs.ThresholdDialog
+import uk.co.jpereira.sparq.utils.*
 import java.io.File
 
 class RedoThresholdException : Exception()
 
+typealias ImagesToProcess = MutableMap<String, Pair<ImagePlus, ImagePlus>>
+
 @Plugin(type = Command::class, menuPath = "Plugins>SParQ")
 open class SParQPlugin : Command {
+    private val bioFormatOpenImage = BioformatImpl()
+    private val channelSplitter = ChannelSpliterImpl()
+    private val imageJImageOpener = ImageJOpenImageImpl()
+
     override fun run() {
         val directory = directoryToProcessImagesFrom() ?: return
 
@@ -53,18 +59,22 @@ open class SParQPlugin : Command {
         }
         var numberOfProcessedFiles = 0
 
+        val imageOpener = ImageOpener(imageJImageOpener, bioFormatOpenImage, channelSplitter)
         /*
          * For each file in the directory the next piece of code will
          * try to process the image.
          * During the process the user can ask to reprocess the same image
          * or to skip the current image all together
          */
-        directory.listFiles().forEach {
-            if (extensions.contains(it.extension)) {
+        directory.listFiles().forEach { file ->
+            if (extensions.contains(file.extension)) {
                 while (true) {
                     try {
-                        imageProcess(it, channel)
-                        numberOfProcessedFiles++
+                        val imagesToProcess = imageOpener.open(file, channel)
+                        imagesToProcess.forEach { images ->
+                            imageProcess(images.key, images.value, channel)
+                            numberOfProcessedFiles++
+                        }
                         break
                     } catch (_: RedoThresholdException) {
                         removeLastEntryFromSummary()
@@ -81,35 +91,34 @@ open class SParQPlugin : Command {
 
     /*
      * The image processing steps are:
-     * 1. Open the image and split into channels
-     * 2. Show the image channel the user asked for
-     * 3. Display the threshold dialog to the user to select the threshold
-     * 4. Display the nuclei channel to help the user to validate the current threshold
-     * 5. Analyze the particles using the built in plugin ParticleAnalyzer
-     * 6. Display a dialog to the user to decide if the result is the expected or not
+     * 1. Show the image channel the user asked for
+     * 2. Display the threshold dialog to the user to select the threshold
+     * 3. Display the nuclei channel to help the user to validate the current threshold
+     * 4. Analyze the particles using the built in plugin ParticleAnalyzer
+     * 5. Display a dialog to the user to decide if the result is the expected or not
      *    If the result is not the expected one than it will restart the image process
      *    for the current image if not it will move to the next image
-     * 7. Closes all the images open
+     * 6. Closes all the images open
      *
      * The code bellow has the pointers for each step described above
      */
-    private fun imageProcess(image: File, useChannel: Channel) {
-        val (cellImage, nucleiImage) = openImage(image, useChannel) // step 1
+    private fun imageProcess(name: String, images: Pair<ImagePlus, ImagePlus>, useChannel: Channel) {
+        val (cellImage, nucleiImage) = images // step 1
 
-        cellImage.show("original image") // step 2
-        val cellImageOutput = thresholdImage(cellImage) ?: return //step 3
+        cellImage.show("original image") // step 1
+        val cellImageOutput = thresholdImage(cellImage) ?: return //step 2
 
-        nucleiImage.show("original image") // step 4
+        nucleiImage.show("original image") // step 3
         zoomOutImage(nucleiImage)
 
-        // next section is step 5
+        // next section is step 4
         IJ.run(cellImageOutput, "Set Measurements...", "area limit add redirect=None decimal=3")
         IJ.run(cellImageOutput, "Analyze Particles...", "size=0.50-Infinity show=[Masks] display exclude clear summarize")
         val particleImage = WindowManager.getCurrentImage()
         zoomOutImage(particleImage)
         particleImage.window.setLocation(450, 300)
 
-        // next section is step 6
+        // next section is step 5
         val isFinishedDialog = GenericDialog("Finished, does it look ok?")
         isFinishedDialog.setCancelLabel("No, repeat threshold")
         isFinishedDialog.setOKLabel("Yes, move to next image")
@@ -124,7 +133,7 @@ open class SParQPlugin : Command {
             throw RedoThresholdException()
         }
 
-        // next setion is step 7
+        // next setion is step 6
         WindowManager.getCurrentImage().close()
         cellImage.changes = false
         cellImage.close()
@@ -132,33 +141,6 @@ open class SParQPlugin : Command {
         cellImageOutput.close()
         nucleiImage.changes = false
         nucleiImage.close()
-    }
-
-    private fun openImage(imageFile: File, useChannel: Channel): Pair<ImagePlus, ImagePlus> {
-        val images: Array<ImagePlus>
-        if (imageFile.extension != "tif") {
-            val options = ImporterOptions()
-            options.isSplitChannels = true
-            options.id = imageFile.absolutePath
-            images = BF.openImagePlus(options)
-        } else {
-            val tifImage = IJ.openImage(imageFile.absolutePath)
-            images = ChannelSplitter.split(tifImage)
-        }
-
-        var useChannelArrayPosition = useChannel.ordinal
-        var blueChannelArrayPosition = Channel.BLUE.ordinal
-        if (!images[0].stack.isRGB) {
-            useChannelArrayPosition = invertToBGR(useChannel)
-            blueChannelArrayPosition = invertToBGR(Channel.BLUE)
-        }
-
-        val cellImage = images[useChannelArrayPosition]
-        if (images.size == 2) {
-            return Pair(cellImage, images[1])
-        }
-
-        return Pair(cellImage, images[blueChannelArrayPosition])
     }
 
     private fun thresholdImage(image: ImagePlus): ImagePlus? {
