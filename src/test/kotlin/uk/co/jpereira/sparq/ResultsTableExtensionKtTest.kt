@@ -1,3 +1,7 @@
+/*
+ * Copyright 2019 Joao Pereira
+ * License can be found in root `LICENSE.md` file
+ */
 package uk.co.jpereira.sparq
 
 import ij.measure.ResultsTable
