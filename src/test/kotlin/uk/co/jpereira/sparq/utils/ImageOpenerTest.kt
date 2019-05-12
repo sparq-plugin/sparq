@@ -19,7 +19,7 @@ import ij.ImagePlus
 import ij.ImageStack
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import uk.co.jpereira.sparq.dialogs.Channel
+import uk.co.jpereira.sparq.Channel
 import uk.co.jpereira.sparq.utils.doubles.*
 import java.awt.image.BufferedImage
 import java.io.File
@@ -135,9 +135,11 @@ internal class ImageOpenerTest {
     @Test
     fun `when image is lif and selected channel is RED, returns first and third image`() {
         val redImage1 = createRGBImage("red-image-1")
+        val magentaImage1 = createRGBImage("magenta-image-1")
         val greenImage1 = createRGBImage("green-image-1")
         val blueImage1 = createRGBImage("blue-image-1")
         val redImage2 = createRGBImage("red-image-2")
+        val magentaImage2 = createRGBImage("magenta-image-2")
         val greenImage2 = createRGBImage("green-image-2")
         val blueImage2 = createRGBImage("blue-image-2")
         val image1 = ImagePlus("first in series", BufferedImage(10, 10, 10))
@@ -145,8 +147,8 @@ internal class ImageOpenerTest {
 
         val bioFormatOpenImageStub = BioFormatOpenImageStub(arrayOf(image1, image2))
         val channelSplitterStub = ChannelSplitterStub(arrayOf(
-                arrayOf(redImage1, greenImage1, blueImage1),
-                arrayOf(redImage2, greenImage2, blueImage2)
+                arrayOf(blueImage1, magentaImage1, greenImage1, redImage1),
+                arrayOf(blueImage2, magentaImage2, greenImage2, redImage2)
         ))
         val imageOpener = ImageOpener(ImageJOpenImageDummy(), bioFormatOpenImageStub, channelSplitterStub)
         val allImages = imageOpener.open(File("/some/path.lif"), Channel.RED)
@@ -166,9 +168,11 @@ internal class ImageOpenerTest {
     @Test
     fun `when image is lif and selected channel is GREEN, returns second and third image`() {
         val redImage1 = createRGBImage("red-image-1")
+        val magentaImage1 = createRGBImage("magenta-image-1")
         val greenImage1 = createRGBImage("green-image-1")
         val blueImage1 = createRGBImage("blue-image-1")
         val redImage2 = createRGBImage("red-image-2")
+        val magentaImage2 = createRGBImage("magenta-image-2")
         val greenImage2 = createRGBImage("green-image-2")
         val blueImage2 = createRGBImage("blue-image-2")
         val image1 = ImagePlus("first in series", BufferedImage(10, 10, 10))
@@ -176,8 +180,8 @@ internal class ImageOpenerTest {
 
         val bioFormatOpenImageStub = BioFormatOpenImageStub(arrayOf(image1, image2))
         val channelSplitterStub = ChannelSplitterStub(arrayOf(
-                arrayOf(redImage1, greenImage1, blueImage1),
-                arrayOf(redImage2, greenImage2, blueImage2)
+                arrayOf(blueImage1, magentaImage1, greenImage1, redImage1),
+                arrayOf(blueImage2, magentaImage2, greenImage2, redImage2)
         ))
         val imageOpener = ImageOpener(ImageJOpenImageDummy(), bioFormatOpenImageStub, channelSplitterStub)
         val allImages = imageOpener.open(File("/some/path.lif"), Channel.GREEN)

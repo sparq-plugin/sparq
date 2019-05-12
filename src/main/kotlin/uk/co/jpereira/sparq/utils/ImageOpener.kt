@@ -2,9 +2,8 @@ package uk.co.jpereira.sparq.utils
 
 import ij.ImagePlus
 import loci.plugins.`in`.ImporterOptions
+import uk.co.jpereira.sparq.Channel
 import uk.co.jpereira.sparq.ImagesToProcess
-import uk.co.jpereira.sparq.dialogs.Channel
-import uk.co.jpereira.sparq.dialogs.invertToBGR
 import java.io.File
 
 interface ImageJOpenImage {
@@ -23,7 +22,6 @@ class ImageOpener(private val imageJImageOpener: ImageJOpenImage,
                   private val bioFormatOpenImage: BioFormatOpenImage,
                   private val channelSplitter: ChannelSplitter) {
     fun open(imageFile: File, useChannel: Channel): ImagesToProcess {
-        var invertColors = false
         val images: MutableMap<String, Array<ImagePlus>> = mutableMapOf()
         when {
             imageFile.extension == "lif" -> {
@@ -43,7 +41,6 @@ class ImageOpener(private val imageJImageOpener: ImageJOpenImage,
 
             }
             else -> {
-                invertColors = true
                 val tifImage = imageJImageOpener.process(imageFile.absolutePath)
                 images[tifImage.title] = channelSplitter.split(tifImage)
             }
@@ -54,12 +51,8 @@ class ImageOpener(private val imageJImageOpener: ImageJOpenImage,
         images.forEach {
             val filename = it.key
             val allImages = it.value
-            var useChannelArrayPosition = useChannel.ordinal
-            var blueChannelArrayPosition = Channel.BLUE.ordinal
-            if (invertColors) {
-                useChannelArrayPosition = invertToBGR(useChannel)
-                blueChannelArrayPosition = invertToBGR(Channel.BLUE)
-            }
+            val useChannelArrayPosition = useChannel.indexOnImage(imageFile)
+            val blueChannelArrayPosition = Channel.BLUE.indexOnImage(imageFile)
 
             val cellImage = allImages[useChannelArrayPosition]
             if (allImages.size == 2) {

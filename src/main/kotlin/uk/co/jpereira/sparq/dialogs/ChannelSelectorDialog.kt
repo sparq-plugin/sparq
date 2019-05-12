@@ -16,23 +16,7 @@
 package uk.co.jpereira.sparq.dialogs
 
 import ij.gui.GenericDialog
-
-enum class Channel {
-    RED,
-    GREEN,
-    BLUE,
-
-    ERROR
-}
-
-fun invertToBGR(channel: Channel): Int {
-    return when(channel) {
-        Channel.RED -> return 2
-        Channel.GREEN -> return 1
-        Channel.BLUE -> 0
-        else -> -1
-    }
-}
+import uk.co.jpereira.sparq.Channel
 
 class ChannelSelectorDialog: GenericDialog("Select channels to use") {
     fun open(): Channel {

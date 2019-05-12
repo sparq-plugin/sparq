@@ -26,7 +26,6 @@ import org.scijava.plugin.Plugin
 import uk.co.jpereira.sparq.dependencies.BioformatImpl
 import uk.co.jpereira.sparq.dependencies.ChannelSpliterImpl
 import uk.co.jpereira.sparq.dependencies.ImageJOpenImageImpl
-import uk.co.jpereira.sparq.dialogs.Channel
 import uk.co.jpereira.sparq.dialogs.ChannelSelectorDialog
 import uk.co.jpereira.sparq.dialogs.ExtensionChooserDialog
 import uk.co.jpereira.sparq.dialogs.ThresholdDialog
