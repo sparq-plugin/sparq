@@ -6,7 +6,7 @@ easily imported to Excel
 
 ### Caveats
 
-- Support loading 3 types of files `tif`, `tiff` and `zvi`
+- Support loading 4 types of files `tif`, `tiff`, `lif` and `zvi`
 - Only read images from the selected folder (If images are in a sub-folder will not be read)
 
 
