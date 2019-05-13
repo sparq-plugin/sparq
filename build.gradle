@@ -114,6 +114,10 @@ modifyPom {
     }
 }
 
+artifacts {
+    add("archives", shadowJar)
+}
+
 extraArchive {
     sources = true
     tests = true
