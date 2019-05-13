@@ -64,12 +64,12 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
     kapt 'net.imagej:imagej:2.0.0-rc-71'
-    compile 'net.imagej:imagej:2.0.0-rc-71'
-    compile(group: 'ome', name: 'bio-formats_plugins', version: '6.0.0-m2')
+    implementation(group: 'net.imagej', name: 'imagej', version: '2.0.0-rc-71')
+    implementation(group: 'ome', name: 'bio-formats_plugins', version: '6.0.0-m2')
 
-    testCompile "org.assertj:assertj-core:3.11.1"
-    testCompile "org.junit.jupiter:junit-jupiter-params:$junitVersion"
-    testCompile "org.junit.jupiter:junit-jupiter-api:$junitVersion"
+    testImplementation "org.assertj:assertj-core:3.11.1"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:$junitVersion"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
     testRuntime "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
     testRuntime "org.junit.platform:junit-platform-console:$junitPlatformVersion"
 }
