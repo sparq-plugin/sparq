@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/sparq-plugin/sparq.svg?style=svg)](https://circleci.com/gh/sparq-plugin/sparq)
+
 ## Streamlined Particle Quantification
 
 Plugin to FIJI (ImageJ) that enable the ability to quantify all images
