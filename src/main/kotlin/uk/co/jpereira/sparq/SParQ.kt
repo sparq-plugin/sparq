@@ -25,7 +25,7 @@ class RedoThresholdException : Exception()
 
 typealias ImagesToProcess = MutableMap<String, Pair<ImagePlus, ImagePlus>>
 
-@Plugin(type = Command::class, menuPath = "Plugins>SParQ")
+@Plugin(type = Command::class, menuPath = "Plugins>SParQ", name = "sparq")
 open class SParQPlugin : Command {
     private val bioFormatOpenImage = BioformatImpl()
     private val channelSplitter = ChannelSpliterImpl()
