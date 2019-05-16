@@ -14,7 +14,7 @@ easily imported to Excel
 
 ## Installation Procedure
 
-1. Download the [latest version](https://github.com/sparq-plugin/sparq/releases/tag/v0.1.1) of the plugin from
+1. Download the [latest version](https://github.com/sparq-plugin/sparq/releases/latest) of the plugin from
 1. Start FIJI
 1. On the top menus press Plugin > Install Plugin
 1. Select the jar file from disk
