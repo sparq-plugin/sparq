@@ -17,6 +17,7 @@ import uk.co.jpereira.sparq.dependencies.ChannelSpliterImpl
 import uk.co.jpereira.sparq.dependencies.ImageJOpenImageImpl
 import uk.co.jpereira.sparq.dialogs.ChannelSelectorDialog
 import uk.co.jpereira.sparq.dialogs.ExtensionChooserDialog
+import uk.co.jpereira.sparq.dialogs.ParticleSizeDialog
 import uk.co.jpereira.sparq.dialogs.ThresholdDialog
 import uk.co.jpereira.sparq.utils.*
 import java.io.File
@@ -30,6 +31,7 @@ open class SParQPlugin : Command {
     private val bioFormatOpenImage = BioformatImpl()
     private val channelSplitter = ChannelSpliterImpl()
     private val imageJImageOpener = ImageJOpenImageImpl()
+    private var particleSize: Double = 0.0
 
     override fun run() {
         val directory = directoryToProcessImagesFrom() ?: return
@@ -46,6 +48,8 @@ open class SParQPlugin : Command {
             return
         }
         var numberOfProcessedFiles = 0
+
+        particleSize = ParticleSizeDialog().open()
 
         val imageOpener = ImageOpener(imageJImageOpener, bioFormatOpenImage, channelSplitter)
         /*
@@ -101,7 +105,7 @@ open class SParQPlugin : Command {
 
         // next section is step 4
         IJ.run(cellImageOutput, "Set Measurements...", "area limit add redirect=None decimal=3")
-        IJ.run(cellImageOutput, "Analyze Particles...", "size=0.50-Infinity show=[Masks] display exclude clear summarize")
+        IJ.run(cellImageOutput, "Analyze Particles...", "size=$particleSize-Infinity show=[Masks] display exclude clear summarize")
         val particleImage = WindowManager.getCurrentImage()
         zoomOutImage(particleImage)
         particleImage.window.setLocation(450, 300)
