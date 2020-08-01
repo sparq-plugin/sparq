@@ -6,6 +6,8 @@ Plugin to FIJI (ImageJ) that enable the ability to quantify all images
 in a folder in one take and save results on a CSV file that can be
 easily imported to Excel
 
+Publication in: https://pubmed.ncbi.nlm.nih.gov/31752589/
+
 ### Caveats
 
 - Support loading 4 types of files `tif`, `tiff`, `lif` and `zvi`
